@@ -91,7 +91,7 @@ def runPyGame():
     pygame.init()
     #pygame.FULLSCREEN = True
     # Set up the clock. This will tick every frame and thus maintain a relatively constant framerate. Hopefully.
-    fps = 144
+    fps = 60
     
     fpsClock = pygame.time.Clock()
 
