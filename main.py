@@ -8,12 +8,14 @@ import numpy as np
 import pygame_widgets as pw
 from pygame_widgets.button import Button
 from pygame_widgets.slider import Slider
+import pickle
 
 class Sound(pygame.mixer.Sound):
     def setVars(self, slider, name):
         self.slider = slider
         self.path = name
-
+        #indicates if a key has already been binded, if yes which key
+        self.key_binded = -1
     def playSound(self, events=None):
         global set_bind
         print("play")
@@ -26,10 +28,23 @@ class Sound(pygame.mixer.Sound):
             key_bind[KEY_TO_BIND] = self.playSound
             BIND_STATE = False
         """
-        print(set_bind)
+        #print(set_bind)
         if set_bind:
-            key_bind[KEY_TO_BIND] = self.playSound
+            key_bind[KEY_TO_BIND] = self
             set_bind = False
+
+            #remove old keybinds
+            """
+            IN DEV
+            if self.key_binded != -1:
+                del key_bind[self.key_binded]
+                buttons[self.path] = Button(screen,
+                                            *manager.positions[self.path],
+                                            text=self.path.replace(".mp3", ""),
+                                            onClick=self.playSound,
+                                            onClickParams=[])
+            """
+            self.key_binded = KEY_TO_BIND
 
             #renew Buttons text
             buttons[self.path] = Button(screen,
@@ -37,21 +52,23 @@ class Sound(pygame.mixer.Sound):
                                text=self.path.replace(".mp3", "") + f" ({pygame.key.name(KEY_TO_BIND)})",
                                onClick=self.playSound,
                                onClickParams=[])
+
         volume = self.slider.getValue() / 100
         self.stop()
         self.set_volume(volume)
         self.play()
 
+
 class GridManager:
     def __init__(self, paths):
         self.paths = paths
 
-        self.min_x = 250
-        self.min_y = 200
+        self.min_x = 240
+        self.min_y = 130
 
-        self.slider_width = 250
-        self.slider_height = 50
-        self.slider_margins = [70, 10]
+        self.slider_width = 220
+        self.slider_height = 40
+        self.slider_margins = [30, 4]
         self.positions, self.slider_positions = self._build_positions()
 
     def _build_positions(self):
@@ -77,6 +94,17 @@ class GridManager:
 
         return [pos, pos_slider]
 
+def save_config():
+    save_dict = {}
+    for key, item in key_bind.items():
+        #print(item)
+        save_dict[key] = item.path
+
+    pickle.dump(save_dict, open("config/SUPERAPP.pkl", "wb"))
+
+def mod_quit():
+    save_config()
+    pygame.quit()
 
 def runPyGame():
     global screen, key_bind, BIND_STATE, KEY_TO_BIND, set_bind
@@ -99,7 +127,7 @@ def runPyGame():
     WIDTH, HEIGHT = pygame.display.Info().current_w, pygame.display.Info().current_h
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
-    close_button = Button(screen, WIDTH-50, HEIGHT-50, 50, 50, text="X", onRelease=pygame.quit)
+    close_button = Button(screen, WIDTH-50, HEIGHT-50, 50, 50, text="X", onRelease=mod_quit)
     # Main game loop.
     dt = 1 / fps  # dt is the time since last frame.
     global sounds, buttons, sliders, manager
@@ -109,7 +137,15 @@ def runPyGame():
     sliders = {}
 
     #list of sounds binded to keys
+
+    #load keybinds if it exists
+    root_files = os.listdir("config")
     key_bind = {}
+    set_config = False
+    for root_file in root_files:
+        if root_file == "SUPERAPP.pkl":
+            key_bind_conf = pickle.load(open(os.path.join("config" ,root_file), "rb"))
+            set_config = True
     paths = os.listdir("sound")
 
     manager = GridManager(paths)
@@ -126,6 +162,7 @@ def runPyGame():
         #assign slider to sound
         sounds[path].setVars(sliders[path], name=path)
 
+
         #bind button to sound
         buttons[path] = Button(screen,
                                *manager.positions[path],
@@ -133,6 +170,16 @@ def runPyGame():
                                onClick=sounds[path].playSound,
                                onClickParams=[])
 
+    #update key_bind to config
+    if set_config:
+        for key, item in key_bind_conf.items():
+            key_bind[key] = sounds[item]
+            sounds[item].key_binded = key
+            buttons[item] = Button(screen,
+                                        *manager.positions[item],
+                                        text=item.replace(".mp3", "") + f" ({pygame.key.name(key)})",
+                                        onClick=sounds[item].playSound,
+                                        onClickParams=[])
     stop_params = [250, 100]
     buttons["stop"] = Button(screen, 0, HEIGHT-stop_params[1], *stop_params, text="Stop all sounds",
                              onClick=pygame.mixer.stop)
@@ -144,7 +191,8 @@ def runPyGame():
         events = pygame.event.get()
         for event in events:
             if event.type == QUIT:
-                pygame.quit()
+
+                mod_quit()
             #print(event)
             if event.type == pygame.KEYDOWN and event.key == BIND_BUTTON and not BIND_STATE:
                 fill_col = (150,20,20)
@@ -165,13 +213,11 @@ def runPyGame():
                 BIND_STATE = False
                 fill_col = (40,40,40)
 
+            #play the actual sound
             if event.type == pygame.KEYDOWN:
                 if event.key in key_bind:
                     print("PLAYSOUND")
-                    key_bind[event.key]()
-
-
-
+                    key_bind[event.key].playSound()
 
         screen.fill(fill_col)
 

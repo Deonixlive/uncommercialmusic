@@ -3,7 +3,7 @@
 
 block_cipher = None
 
-data_files = [("sound/*.mp3", "sound")]
+data_files = [("sound/*.mp3", "sound"), ("config/*.pkl", "config")]
 a = Analysis(
     ['main.py'],
     pathex=[],
